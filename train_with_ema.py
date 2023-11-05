@@ -2,6 +2,8 @@ from model.BrownianBridge.base.modules.diffusionmodules.openaimodel import UNetM
 import torch
 from datasets.custom import CustomAlignedDataset
 from ema import EMA
+from latent_space import LDM
+
 import yaml
 from utils import dict2namespace, remove_file
 import os
@@ -12,22 +14,22 @@ from tqdm.autonotebook import tqdm
 import faulthandler
 
 faulthandler.enable()
-batch_size =  8 #@param {'type':'integer'}
+
 device = 'cuda' #@param ['cuda', 'cpu'] {'type':'string'}
 accumulate_grad_batches = 4
 use_scheduler = True
 n_epochs =   300#@param {'type':'integer'}
 use_ema = True 
-start_valid_epoch =  40#@param {'type':'integer'}
+start_valid_epoch =  25#@param {'type':'integer'}
 ## learning rate
 lr=1e-4 #@param {'type':'number'}
 
 f = open('cf.yaml', 'r')
 dict_config = yaml.load(f, Loader=yaml.FullLoader)
 nconfig = dict2namespace(dict_config)
-res_folder = 'results/BBDM_SDE_ema1/'
+res_folder = 'results/BBDM_SDE_ema_15k/'
 os.makedirs(res_folder, exist_ok=True)
-
+batch_size = nconfig.data.train.batch_size
 
 # score_model = torch.nn.DataParallel(UNetModel(**vars(nconfig.model.BB.params.UNetParams)))
 score_model = UNetModel(**vars(nconfig.model.BB.params.UNetParams))
@@ -95,9 +97,13 @@ def loss_fn(model, x_0, y,  marginal_prob_std ,eps=1e-5):
   perturbed_x = x_0 * one_minus_t[:, None, None, None] + y * random_t[:, None, None, None] + z * std[:, None, None, None] 
   score = model(perturbed_x, random_t, marginal_prob_std)
   loss = torch.mean(torch.sum((score * std[:, None, None, None] + z)**2, dim=(1,2,3)))
+  # loss = torch.mean(torch.sum((score * std[:, None, None, None] + z).abs(), dim=(1,2,3)))
   return loss
 
 train_dataset = CustomAlignedDataset(nconfig.data.dataset_config)
+
+if nconfig.data.dataset_config:
+  nconfig.data.dataset_config.flip = False  
 val_dataset = CustomAlignedDataset(nconfig.data.dataset_config, 'val')
 test_dataset = CustomAlignedDataset(nconfig.data.dataset_config, 'test')
 
@@ -117,7 +123,7 @@ test_loader = DataLoader(test_dataset,
                                      drop_last=True)
 
 
-from ldm import LDM
+
 latent_encoder = LDM(nconfig.model.VQGAN.params)
 latent_encoder = latent_encoder.to(device)
 
@@ -129,7 +135,7 @@ if use_scheduler:
 
 tqdm_epoch = range(n_epochs)
 
-best_loss = 400.0
+best_loss = 1000.0
 
 for epoch in tqdm_epoch:
   print()
@@ -211,6 +217,6 @@ for epoch in tqdm_epoch:
     if use_ema:
       emA.restore(score_model)
     # Update the checkpoint after each epoch of training.
-    torch.save(score_model.state_dict(), res_folder + '/last_model.pth')
+    # torch.save(score_model.state_dict(), res_folder + '/last_model.pth')
 
 

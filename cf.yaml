@@ -5,19 +5,19 @@ data:
   dataset_config:
     max_pixel_ori: 32767 # Pet 
     max_pixel_cond: 2047  # CT
-    dataset_path: '/mnt/disk1/mbbank/tien/BBDM/108'
+    dataset_path: '/workdir/carrot/splited_data_15k'
     image_size: 256
     channels: 1
     to_normal: True 
     flip: False
   train:
-    batch_size: 8
+    batch_size: 16
     shuffle: True
   val:
-    batch_size: 8
+    batch_size: 16
     shuffle: True
   test:
-    batch_size: 8
+    batch_size: 16
     
     # shuffle: False
 model: 
@@ -78,7 +78,7 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: /mnt/disk3/tiennh/taming-transformers/vq1_3_69.ckpt
+      ckpt_path: /workdir/carrot/vqgan/vq1_3_69.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
